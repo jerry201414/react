@@ -14,12 +14,12 @@ let ReactFeatureFlags;
 let ReactDOM;
 let useKeyboard;
 
-import {createEventTarget} from '../testing-library';
+import {createEventTarget} from 'dom-event-testing-library';
 
 function initializeModules(hasPointerEvents) {
   jest.resetModules();
   ReactFeatureFlags = require('shared/ReactFeatureFlags');
-  ReactFeatureFlags.enableFlareAPI = true;
+  ReactFeatureFlags.enableDeprecatedFlareAPI = true;
   React = require('react');
   ReactDOM = require('react-dom');
   useKeyboard = require('react-interactions/events/keyboard').useKeyboard;
@@ -27,6 +27,11 @@ function initializeModules(hasPointerEvents) {
 
 describe('Keyboard responder', () => {
   let container;
+
+  if (!__EXPERIMENTAL__) {
+    it("empty test so Jest doesn't complain", () => {});
+    return;
+  }
 
   beforeEach(() => {
     initializeModules();

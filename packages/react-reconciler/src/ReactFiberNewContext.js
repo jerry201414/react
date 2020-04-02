@@ -16,20 +16,19 @@ export type ContextDependency<T> = {
   context: ReactContext<T>,
   observedBits: number,
   next: ContextDependency<mixed> | null,
+  ...
 };
 
-import warningWithoutStack from 'shared/warningWithoutStack';
 import {isPrimaryRenderer} from './ReactFiberHostConfig';
 import {createCursor, push, pop} from './ReactFiberStack';
-import MAX_SIGNED_31_BIT_INT from './maxSigned31BitInt';
+import {MAX_SIGNED_31_BIT_INT} from './MaxInts';
 import {
   ContextProvider,
   ClassComponent,
   DehydratedFragment,
-} from 'shared/ReactWorkTags';
+} from './ReactWorkTags';
 
 import invariant from 'shared/invariant';
-import warning from 'shared/warning';
 import is from 'shared/objectIs';
 import {
   createUpdate,
@@ -85,13 +84,16 @@ export function pushProvider<T>(providerFiber: Fiber, nextValue: T): void {
 
     context._currentValue = nextValue;
     if (__DEV__) {
-      warningWithoutStack(
-        context._currentRenderer === undefined ||
-          context._currentRenderer === null ||
-          context._currentRenderer === rendererSigil,
-        'Detected multiple renderers concurrently rendering the ' +
-          'same context provider. This is currently unsupported.',
-      );
+      if (
+        context._currentRenderer !== undefined &&
+        context._currentRenderer !== null &&
+        context._currentRenderer !== rendererSigil
+      ) {
+        console.error(
+          'Detected multiple renderers concurrently rendering the ' +
+            'same context provider. This is currently unsupported.',
+        );
+      }
       context._currentRenderer = rendererSigil;
     }
   } else {
@@ -99,13 +101,16 @@ export function pushProvider<T>(providerFiber: Fiber, nextValue: T): void {
 
     context._currentValue2 = nextValue;
     if (__DEV__) {
-      warningWithoutStack(
-        context._currentRenderer2 === undefined ||
-          context._currentRenderer2 === null ||
-          context._currentRenderer2 === rendererSigil,
-        'Detected multiple renderers concurrently rendering the ' +
-          'same context provider. This is currently unsupported.',
-      );
+      if (
+        context._currentRenderer2 !== undefined &&
+        context._currentRenderer2 !== null &&
+        context._currentRenderer2 !== rendererSigil
+      ) {
+        console.error(
+          'Detected multiple renderers concurrently rendering the ' +
+            'same context provider. This is currently unsupported.',
+        );
+      }
       context._currentRenderer2 = rendererSigil;
     }
   }
@@ -139,12 +144,13 @@ export function calculateChangedBits<T>(
         : MAX_SIGNED_31_BIT_INT;
 
     if (__DEV__) {
-      warning(
-        (changedBits & MAX_SIGNED_31_BIT_INT) === changedBits,
-        'calculateChangedBits: Expected the return value to be a ' +
-          '31-bit integer. Instead received: %s',
-        changedBits,
-      );
+      if ((changedBits & MAX_SIGNED_31_BIT_INT) !== changedBits) {
+        console.error(
+          'calculateChangedBits: Expected the return value to be a ' +
+            '31-bit integer. Instead received: %s',
+          changedBits,
+        );
+      }
     }
     return changedBits | 0;
   }
@@ -158,7 +164,7 @@ export function scheduleWorkOnParentPath(
   // the alternates.
   let node = parent;
   while (node !== null) {
-    let alternate = node.alternate;
+    const alternate = node.alternate;
     if (node.childExpirationTime < renderExpirationTime) {
       node.childExpirationTime = renderExpirationTime;
       if (
@@ -223,7 +229,7 @@ export function propagateContextChange(
           if (fiber.expirationTime < renderExpirationTime) {
             fiber.expirationTime = renderExpirationTime;
           }
-          let alternate = fiber.alternate;
+          const alternate = fiber.alternate;
           if (
             alternate !== null &&
             alternate.expirationTime < renderExpirationTime
@@ -254,7 +260,7 @@ export function propagateContextChange(
       // If a dehydrated suspense bounudary is in this subtree, we don't know
       // if it will have any context consumers in it. The best we can do is
       // mark it as having updates.
-      let parentSuspense = fiber.return;
+      const parentSuspense = fiber.return;
       invariant(
         parentSuspense !== null,
         'We just came from a parent so we must have had a parent. This is a bug in React.',
@@ -262,7 +268,7 @@ export function propagateContextChange(
       if (parentSuspense.expirationTime < renderExpirationTime) {
         parentSuspense.expirationTime = renderExpirationTime;
       }
-      let alternate = parentSuspense.alternate;
+      const alternate = parentSuspense.alternate;
       if (
         alternate !== null &&
         alternate.expirationTime < renderExpirationTime
@@ -292,7 +298,7 @@ export function propagateContextChange(
           nextFiber = null;
           break;
         }
-        let sibling = nextFiber.sibling;
+        const sibling = nextFiber.sibling;
         if (sibling !== null) {
           // Set the return pointer of the sibling to the work-in-progress fiber.
           sibling.return = nextFiber.return;
@@ -336,13 +342,14 @@ export function readContext<T>(
   if (__DEV__) {
     // This warning would fire if you read context inside a Hook like useMemo.
     // Unlike the class check below, it's not enforced in production for perf.
-    warning(
-      !isDisallowedContextReadInDEV,
-      'Context can only be read while React is rendering. ' +
-        'In classes, you can read it in the render method or getDerivedStateFromProps. ' +
-        'In function components, you can read it directly in the function body, but not ' +
-        'inside Hooks like useReducer() or useMemo().',
-    );
+    if (isDisallowedContextReadInDEV) {
+      console.error(
+        'Context can only be read while React is rendering. ' +
+          'In classes, you can read it in the render method or getDerivedStateFromProps. ' +
+          'In function components, you can read it directly in the function body, but not ' +
+          'inside Hooks like useReducer() or useMemo().',
+      );
+    }
   }
 
   if (lastContextWithAllBitsObserved === context) {
@@ -362,7 +369,7 @@ export function readContext<T>(
       resolvedObservedBits = observedBits;
     }
 
-    let contextItem = {
+    const contextItem = {
       context: ((context: any): ReactContext<mixed>),
       observedBits: resolvedObservedBits,
       next: null,

@@ -9,7 +9,11 @@
 
 'use strict';
 
-import {createEventTarget, setPointerEvent, platform} from '../testing-library';
+import {
+  createEventTarget,
+  setPointerEvent,
+  platform,
+} from 'dom-event-testing-library';
 
 let React;
 let ReactFeatureFlags;
@@ -21,7 +25,7 @@ function initializeModules(hasPointerEvents) {
   setPointerEvent(hasPointerEvents);
   jest.resetModules();
   ReactFeatureFlags = require('shared/ReactFeatureFlags');
-  ReactFeatureFlags.enableFlareAPI = true;
+  ReactFeatureFlags.enableDeprecatedFlareAPI = true;
   React = require('react');
   ReactDOM = require('react-dom');
   FocusResponder = require('react-interactions/events/focus').FocusResponder;
@@ -33,6 +37,11 @@ const table = [[forcePointerEvents], [!forcePointerEvents]];
 
 describe.each(table)('Focus responder', hasPointerEvents => {
   let container;
+
+  if (!__EXPERIMENTAL__) {
+    it("empty test so Jest doesn't complain", () => {});
+    return;
+  }
 
   beforeEach(() => {
     initializeModules(hasPointerEvents);

@@ -73,7 +73,7 @@ describe('ReactExpiration', () => {
     ReactNoop.render(<Text text="A" />);
     // Advance the timer.
     Scheduler.unstable_advanceTime(2000);
-    // Partially flush the the first update, then interrupt it.
+    // Partially flush the first update, then interrupt it.
     expect(Scheduler).toFlushAndYieldThrough(['A [render]']);
     interrupt();
 
@@ -138,7 +138,7 @@ describe('ReactExpiration', () => {
       ReactNoop.render(<Text text="A" />);
       // Advance the timer.
       Scheduler.unstable_advanceTime(2000);
-      // Partially flush the the first update, then interrupt it.
+      // Partially flush the first update, then interrupt it.
       expect(Scheduler).toFlushAndYieldThrough(['A [render]']);
       interrupt();
 
@@ -182,8 +182,8 @@ describe('ReactExpiration', () => {
   );
 
   it('cannot update at the same expiration time that is already rendering', () => {
-    let store = {text: 'initial'};
-    let subscribers = [];
+    const store = {text: 'initial'};
+    const subscribers = [];
     class Connected extends React.Component {
       state = {text: store.text};
       componentDidMount() {

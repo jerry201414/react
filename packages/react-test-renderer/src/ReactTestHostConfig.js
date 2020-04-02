@@ -7,15 +7,13 @@
  * @flow
  */
 
-import warning from 'shared/warning';
-
 import type {
   ReactEventResponder,
   ReactEventResponderInstance,
   ReactFundamentalComponentInstance,
 } from 'shared/ReactTypes';
 
-import {enableFlareAPI} from 'shared/ReactFeatureFlags';
+import {enableDeprecatedFlareAPI} from 'shared/ReactFeatureFlags';
 
 export type Type = string;
 export type Props = Object;
@@ -47,8 +45,13 @@ export type TimeoutHandle = TimeoutID;
 export type NoTimeout = -1;
 export type EventResponder = any;
 
-export * from 'shared/HostConfigWithNoPersistence';
-export * from 'shared/HostConfigWithNoHydration';
+export type ReactListenerEvent = Object;
+export type ReactListenerMap = Object;
+export type ReactListener = Object;
+export type RendererInspectionConfig = $ReadOnly<{||}>;
+
+export * from 'react-reconciler/src/ReactFiberHostConfigWithNoPersistence';
+export * from 'react-reconciler/src/ReactFiberHostConfigWithNoHydration';
 
 const EVENT_COMPONENT_CONTEXT = {};
 const NO_CONTEXT = {};
@@ -82,13 +85,14 @@ export function appendChild(
   child: Instance | TextInstance,
 ): void {
   if (__DEV__) {
-    warning(
-      Array.isArray(parentInstance.children),
-      'An invalid container has been provided. ' +
-        'This may indicate that another renderer is being used in addition to the test renderer. ' +
-        '(For example, ReactDOM.createPortal inside of a ReactTestRenderer tree.) ' +
-        'This is not supported.',
-    );
+    if (!Array.isArray(parentInstance.children)) {
+      console.error(
+        'An invalid container has been provided. ' +
+          'This may indicate that another renderer is being used in addition to the test renderer. ' +
+          '(For example, ReactDOM.createPortal inside of a ReactTestRenderer tree.) ' +
+          'This is not supported.',
+      );
+    }
   }
   const index = parentInstance.children.indexOf(child);
   if (index !== -1) {
@@ -148,7 +152,7 @@ export function createInstance(
   internalInstanceHandle: Object,
 ): Instance {
   let propsToUse = props;
-  if (enableFlareAPI) {
+  if (enableDeprecatedFlareAPI) {
     if (props.DEPRECATED_flareListeners != null) {
       // We want to remove the "DEPRECATED_flareListeners" prop
       // as we don't want it in the test renderer's
@@ -196,7 +200,7 @@ export function prepareUpdate(
   newProps: Props,
   rootContainerInstance: Container,
   hostContext: Object,
-): null | {} {
+): null | {...} {
   return UPDATE_SIGNAL;
 }
 
@@ -214,13 +218,16 @@ export function createTextInstance(
   hostContext: Object,
   internalInstanceHandle: Object,
 ): TextInstance {
-  if (__DEV__ && enableFlareAPI) {
-    warning(
-      hostContext !== EVENT_COMPONENT_CONTEXT,
-      'validateDOMNesting: React event components cannot have text DOM nodes as children. ' +
-        'Wrap the child text "%s" in an element.',
-      text,
-    );
+  if (__DEV__) {
+    if (enableDeprecatedFlareAPI) {
+      if (hostContext === EVENT_COMPONENT_CONTEXT) {
+        console.error(
+          'validateDOMNesting: React event components cannot have text DOM nodes as children. ' +
+            'Wrap the child text "%s" in an element.',
+          text,
+        );
+      }
+    }
   }
   return {
     text,
@@ -244,7 +251,7 @@ export const supportsMutation = true;
 
 export function commitUpdate(
   instance: Instance,
-  updatePayload: {},
+  updatePayload: {...},
   type: string,
   oldProps: Props,
   newProps: Props,
@@ -298,7 +305,7 @@ export function unhideTextInstance(
   textInstance.isHidden = false;
 }
 
-export function mountResponderInstance(
+export function DEPRECATED_mountResponderInstance(
   responder: ReactEventResponder<any, any>,
   responderInstance: ReactEventResponderInstance<any, any>,
   props: Object,
@@ -308,13 +315,15 @@ export function mountResponderInstance(
   // noop
 }
 
-export function unmountResponderInstance(
+export function DEPRECATED_unmountResponderInstance(
   responderInstance: ReactEventResponderInstance<any, any>,
 ): void {
   // noop
 }
 
-export function getFundamentalComponentInstance(fundamentalInstance): Instance {
+export function getFundamentalComponentInstance(
+  fundamentalInstance: ReactFundamentalComponentInstance<any, any>,
+): Instance {
   const {impl, props, state} = fundamentalInstance;
   return impl.getInstance(null, props, state);
 }
@@ -368,6 +377,22 @@ export function getInstanceFromNode(mockNode: Object) {
   return null;
 }
 
-export function beforeRemoveInstance(instance) {
+export function beforeRemoveInstance(instance: any) {
   // noop
+}
+
+export function registerEvent(event: any, rootContainerInstance: Container) {
+  throw new Error('Not yet implemented.');
+}
+
+export function mountEventListener(listener: any) {
+  throw new Error('Not yet implemented.');
+}
+
+export function unmountEventListener(listener: any) {
+  throw new Error('Not yet implemented.');
+}
+
+export function validateEventListenerTarget(target: any, listener: any) {
+  throw new Error('Not yet implemented.');
 }

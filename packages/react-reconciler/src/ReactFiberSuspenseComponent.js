@@ -10,8 +10,8 @@
 import type {Fiber} from './ReactFiber';
 import type {SuspenseInstance} from './ReactFiberHostConfig';
 import type {ExpirationTime} from './ReactFiberExpirationTime';
-import {SuspenseComponent, SuspenseListComponent} from 'shared/ReactWorkTags';
-import {NoEffect, DidCapture} from 'shared/ReactSideEffectTags';
+import {SuspenseComponent, SuspenseListComponent} from './ReactWorkTags';
+import {NoEffect, DidCapture} from './ReactSideEffectTags';
 import {
   isSuspenseInstancePending,
   isSuspenseInstanceFallback,
@@ -20,6 +20,7 @@ import {
 export type SuspenseHydrationCallbacks = {
   onHydrated?: (suspenseInstance: SuspenseInstance) => void,
   onDeleted?: (suspenseInstance: SuspenseInstance) => void,
+  ...
 };
 
 // A null SuspenseState represents an unsuspended normal Suspense boundary.
@@ -34,6 +35,10 @@ export type SuspenseState = {|
   // here to indicate that it is dehydrated (flag) and for quick access
   // to check things like isSuspenseInstancePending.
   dehydrated: null | SuspenseInstance,
+  // Represents the work that was deprioritized when we committed the fallback.
+  // The work outside the boundary already committed at this level, so we cannot
+  // unhide the content without including it.
+  baseTime: ExpirationTime,
   // Represents the earliest expiration time we should attempt to hydrate
   // a dehydrated boundary at.
   // Never is the default for dehydrated boundaries.
@@ -47,6 +52,8 @@ export type SuspenseListRenderState = {|
   isBackwards: boolean,
   // The currently rendering tail row.
   rendering: null | Fiber,
+  // The absolute time when we started rendering the tail row.
+  renderingStartTime: number,
   // The last of the already rendered children.
   last: null | Fiber,
   // Remaining rows on the tail of the list.
@@ -113,7 +120,7 @@ export function findFirstSuspended(row: Fiber): null | Fiber {
       // keep track of whether it suspended or not.
       node.memoizedProps.revealOrder !== undefined
     ) {
-      let didSuspend = (node.effectTag & DidCapture) !== NoEffect;
+      const didSuspend = (node.effectTag & DidCapture) !== NoEffect;
       if (didSuspend) {
         return node;
       }

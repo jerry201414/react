@@ -9,9 +9,9 @@
 
 import type {Fiber} from './ReactFiber';
 import type {ExpirationTime} from './ReactFiberExpirationTime';
-import type {RootTag} from 'shared/ReactRootTags';
+import type {RootTag} from 'react-reconciler/src/ReactRootTags';
 import type {TimeoutHandle, NoTimeout} from './ReactFiberHostConfig';
-import type {Thenable} from './ReactFiberWorkLoop';
+import type {Wakeable} from 'shared/ReactTypes';
 import type {Interaction} from 'scheduler/src/Tracing';
 import type {SuspenseHydrationCallbacks} from './ReactFiberSuspenseComponent';
 import type {ReactPriorityLevel} from './SchedulerWithReactIntegration';
@@ -25,6 +25,8 @@ import {
 } from 'shared/ReactFeatureFlags';
 import {unstable_getThreadID} from 'scheduler/tracing';
 import {NoPriority} from './SchedulerWithReactIntegration';
+import {initializeUpdateQueue} from './ReactUpdateQueue';
+import {clearPendingUpdates as clearPendingMutableSourceUpdates} from './ReactMutableSource';
 
 export type PendingInteractionMap = Map<ExpirationTime, Set<Interaction>>;
 
@@ -40,8 +42,8 @@ type BaseFiberRootProperties = {|
   current: Fiber,
 
   pingCache:
-    | WeakMap<Thenable, Set<ExpirationTime>>
-    | Map<Thenable, Set<ExpirationTime>>
+    | WeakMap<Wakeable, Set<ExpirationTime>>
+    | Map<Wakeable, Set<ExpirationTime>>
     | null,
 
   finishedExpirationTime: ExpirationTime,
@@ -63,6 +65,8 @@ type BaseFiberRootProperties = {|
   callbackPriority: ReactPriorityLevel,
   // The earliest pending expiration time that exists in the tree
   firstPendingTime: ExpirationTime,
+  // The latest pending expiration time that exists in the tree
+  lastPendingTime: ExpirationTime,
   // The earliest suspended expiration time that exists in the tree
   firstSuspendedTime: ExpirationTime,
   // The latest suspended expiration time that exists in the tree
@@ -73,6 +77,9 @@ type BaseFiberRootProperties = {|
   // render again
   lastPingedTime: ExpirationTime,
   lastExpiredTime: ExpirationTime,
+  // Used by useMutableSource hook to avoid tearing within this root
+  // when external, mutable sources are read from during render.
+  mutableSourcePendingUpdateTime: ExpirationTime,
 |};
 
 // The following attributes are only used by interaction tracing builds.
@@ -99,6 +106,7 @@ export type FiberRoot = {
   ...BaseFiberRootProperties,
   ...ProfilingOnlyFiberRootProperties,
   ...SuspenseCallbackOnlyFiberRootProperties,
+  ...
 };
 
 function FiberRootNode(containerInfo, tag, hydrate) {
@@ -116,11 +124,13 @@ function FiberRootNode(containerInfo, tag, hydrate) {
   this.callbackNode = null;
   this.callbackPriority = NoPriority;
   this.firstPendingTime = NoWork;
+  this.lastPendingTime = NoWork;
   this.firstSuspendedTime = NoWork;
   this.lastSuspendedTime = NoWork;
   this.nextKnownPendingLevel = NoWork;
   this.lastPingedTime = NoWork;
   this.lastExpiredTime = NoWork;
+  this.mutableSourcePendingUpdateTime = NoWork;
 
   if (enableSchedulerTracing) {
     this.interactionThreadID = unstable_getThreadID();
@@ -149,6 +159,8 @@ export function createFiberRoot(
   root.current = uninitializedFiber;
   uninitializedFiber.stateNode = root;
 
+  initializeUpdateQueue(uninitializedFiber);
+
   return root;
 }
 
@@ -160,8 +172,8 @@ export function isRootSuspendedAtTime(
   const lastSuspendedTime = root.lastSuspendedTime;
   return (
     firstSuspendedTime !== NoWork &&
-    (firstSuspendedTime >= expirationTime &&
-      lastSuspendedTime <= expirationTime)
+    firstSuspendedTime >= expirationTime &&
+    lastSuspendedTime <= expirationTime
   );
 }
 
@@ -196,6 +208,10 @@ export function markRootUpdatedAtTime(
   if (expirationTime > firstPendingTime) {
     root.firstPendingTime = expirationTime;
   }
+  const lastPendingTime = root.lastPendingTime;
+  if (lastPendingTime === NoWork || expirationTime < lastPendingTime) {
+    root.lastPendingTime = expirationTime;
+  }
 
   // Update the range of suspended times. Treat everything lower priority or
   // equal to this update as unsuspended.
@@ -223,6 +239,11 @@ export function markRootFinishedAtTime(
 ): void {
   // Update the range of pending times
   root.firstPendingTime = remainingExpirationTime;
+  if (remainingExpirationTime < root.lastPendingTime) {
+    // This usually means we've finished all the work, but it can also happen
+    // when something gets downprioritized during render, like a hidden tree.
+    root.lastPendingTime = remainingExpirationTime;
+  }
 
   // Update the range of suspended times. Treat everything higher priority or
   // equal to this update as unsuspended.
@@ -245,6 +266,9 @@ export function markRootFinishedAtTime(
     // Clear the expired time
     root.lastExpiredTime = NoWork;
   }
+
+  // Clear any pending updates that were just processed.
+  clearPendingMutableSourceUpdates(root, finishedExpirationTime);
 }
 
 export function markRootExpiredAtTime(

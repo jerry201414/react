@@ -33,7 +33,7 @@ const setUntrackedTextareaValue = Object.getOwnPropertyDescriptor(
 
 const modulesInit = () => {
   ReactFeatureFlags = require('shared/ReactFeatureFlags');
-  ReactFeatureFlags.enableFlareAPI = true;
+  ReactFeatureFlags.enableDeprecatedFlareAPI = true;
   ReactFeatureFlags.debugRenderPhaseSideEffectsForStrictMode = false;
   React = require('react');
   ReactDOM = require('react-dom');
@@ -44,6 +44,11 @@ const modulesInit = () => {
 
 describe('Input event responder', () => {
   let container;
+
+  if (!__EXPERIMENTAL__) {
+    it("empty test so Jest doesn't complain", () => {});
+    return;
+  }
 
   beforeEach(() => {
     jest.resetModules();

@@ -16,8 +16,7 @@ import type {FiberRoot} from './ReactFiberRoot';
 import type {ExpirationTime} from './ReactFiberExpirationTime';
 import type {ReactNodeList} from 'shared/ReactTypes';
 
-import {DidCapture} from 'shared/ReactSideEffectTags';
-import warningWithoutStack from 'shared/warningWithoutStack';
+import {DidCapture} from './ReactSideEffectTags';
 
 declare var __REACT_DEVTOOLS_GLOBAL_HOOK__: Object | void;
 
@@ -43,8 +42,7 @@ export function injectInternals(internals: Object): boolean {
   }
   if (!hook.supportsFiber) {
     if (__DEV__) {
-      warningWithoutStack(
-        false,
+      console.error(
         'The installed version of React DevTools is too old and will not work ' +
           'with the current version of React. Please update React DevTools. ' +
           'https://fb.me/react-devtools',
@@ -65,9 +63,8 @@ export function injectInternals(internals: Object): boolean {
           } catch (err) {
             if (__DEV__ && !hasLoggedError) {
               hasLoggedError = true;
-              warningWithoutStack(
-                false,
-                'React DevTools encountered an error: %s',
+              console.error(
+                'React instrumentation encountered an error: %s',
                 err,
               );
             }
@@ -89,13 +86,14 @@ export function injectInternals(internals: Object): boolean {
           hook.onCommitFiberRoot(rendererID, root, undefined, didError);
         }
       } catch (err) {
-        if (__DEV__ && !hasLoggedError) {
-          hasLoggedError = true;
-          warningWithoutStack(
-            false,
-            'React DevTools encountered an error: %s',
-            err,
-          );
+        if (__DEV__) {
+          if (!hasLoggedError) {
+            hasLoggedError = true;
+            console.error(
+              'React instrumentation encountered an error: %s',
+              err,
+            );
+          }
         }
       }
     };
@@ -103,24 +101,21 @@ export function injectInternals(internals: Object): boolean {
       try {
         hook.onCommitFiberUnmount(rendererID, fiber);
       } catch (err) {
-        if (__DEV__ && !hasLoggedError) {
-          hasLoggedError = true;
-          warningWithoutStack(
-            false,
-            'React DevTools encountered an error: %s',
-            err,
-          );
+        if (__DEV__) {
+          if (!hasLoggedError) {
+            hasLoggedError = true;
+            console.error(
+              'React instrumentation encountered an error: %s',
+              err,
+            );
+          }
         }
       }
     };
   } catch (err) {
     // Catch all errors because it is unsafe to throw during initialization.
     if (__DEV__) {
-      warningWithoutStack(
-        false,
-        'React DevTools encountered an error: %s.',
-        err,
-      );
+      console.error('React instrumentation encountered an error: %s.', err);
     }
   }
   // DevTools exists

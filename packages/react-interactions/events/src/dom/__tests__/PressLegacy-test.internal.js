@@ -10,10 +10,12 @@
 'use strict';
 
 import {
+  buttonType,
   buttonsType,
   createEventTarget,
+  resetActivePointers,
   setPointerEvent,
-} from '../testing-library';
+} from 'dom-event-testing-library';
 
 let React;
 let ReactFeatureFlags;
@@ -25,7 +27,7 @@ function initializeModules(hasPointerEvents) {
   jest.resetModules();
   setPointerEvent(hasPointerEvents);
   ReactFeatureFlags = require('shared/ReactFeatureFlags');
-  ReactFeatureFlags.enableFlareAPI = true;
+  ReactFeatureFlags.enableDeprecatedFlareAPI = true;
   React = require('react');
   ReactDOM = require('react-dom');
   PressResponder = require('react-interactions/events/press-legacy')
@@ -48,6 +50,11 @@ const pointerTypesTable = [['mouse'], ['touch']];
 describe.each(environmentTable)('Press responder', hasPointerEvents => {
   let container;
 
+  if (!__EXPERIMENTAL__) {
+    it("empty test so Jest doesn't complain", () => {});
+    return;
+  }
+
   beforeEach(() => {
     initializeModules(hasPointerEvents);
     container = document.createElement('div');
@@ -58,6 +65,7 @@ describe.each(environmentTable)('Press responder', hasPointerEvents => {
     ReactDOM.render(null, container);
     document.body.removeChild(container);
     container = null;
+    resetActivePointers();
   });
 
   describe('disabled', () => {
@@ -122,6 +130,7 @@ describe.each(environmentTable)('Press responder', hasPointerEvents => {
     it('is called after middle-button pointer down', () => {
       const target = createEventTarget(ref.current);
       target.pointerdown({
+        button: buttonType.auxiliary,
         buttons: buttonsType.auxiliary,
         pointerType: 'mouse',
       });
@@ -140,6 +149,7 @@ describe.each(environmentTable)('Press responder', hasPointerEvents => {
       const target = createEventTarget(node);
       target.setBoundingClientRect({x: 0, y: 0, width: 100, height: 100});
       target.pointerdown({
+        button: buttonType.auxiliary,
         buttons: buttonsType.auxiliary,
         pointerType: 'mouse',
       });
@@ -374,6 +384,17 @@ describe.each(environmentTable)('Press responder', hasPointerEvents => {
       expect(onPress).not.toHaveBeenCalled();
     });
 
+    it('is not called after virtual middle-button press', () => {
+      const target = createEventTarget(ref.current);
+      target.pointerdown({
+        button: buttonType.auxiliary,
+        buttons: 0,
+        pointerType: 'mouse',
+      });
+      target.pointerup({pointerType: 'mouse'});
+      expect(onPress).not.toHaveBeenCalled();
+    });
+
     it('is called after valid "keyup" event', () => {
       const target = createEventTarget(ref.current);
       target.keydown({key: 'Enter'});
@@ -594,7 +615,7 @@ describe.each(environmentTable)('Press responder', hasPointerEvents => {
       });
 
       it('press retention offset can be configured', () => {
-        let localEvents = [];
+        const localEvents = [];
         const localRef = React.createRef();
         const createEventHandler = msg => () => {
           localEvents.push(msg);
@@ -1150,5 +1171,26 @@ describe.each(environmentTable)('Press responder', hasPointerEvents => {
     expect(preventDefault).toBeCalled();
     expect(onPressStart).toBeCalled();
     expect(onPressEnd).toBeCalled();
+  });
+
+  it('when blur occurs on a pressed target, we should disengage press', () => {
+    const onPress = jest.fn();
+    const onPressStart = jest.fn();
+    const onPressEnd = jest.fn();
+    const buttonRef = React.createRef();
+
+    const Component = () => {
+      const listener = usePress({onPress, onPressStart, onPressEnd});
+      return <button ref={buttonRef} DEPRECATED_flareListeners={listener} />;
+    };
+    ReactDOM.render(<Component />, container);
+
+    const target = createEventTarget(buttonRef.current);
+    target.pointerdown();
+    expect(onPressStart).toBeCalled();
+    target.blur();
+    expect(onPressEnd).toBeCalled();
+    target.pointerup();
+    expect(onPress).not.toBeCalled();
   });
 });
